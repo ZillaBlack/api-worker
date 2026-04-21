@@ -22,7 +22,6 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 REDIS_URL = os.getenv("REDIS_URL")
 
-# Verificar se as chaves existem
 if not STRIPE_SECRET_KEY:
     raise Exception("ERRO: STRIPE_SECRET_KEY não configurada")
 if not STRIPE_WEBHOOK_SECRET:
@@ -32,7 +31,9 @@ if not REDIS_URL:
 
 stripe.api_key = STRIPE_SECRET_KEY
 
-# Conexão Redis com reconexão automática
+# ======================
+# CONEXÃO REDIS
+# ======================
 class RedisClient:
     def __init__(self, url):
         self.url = url
@@ -104,11 +105,8 @@ class RedisClient:
 
 redis_client_wrapper = RedisClient(REDIS_URL)
 
-def redis_client():
-    return redis_client_wrapper.get_client()
-
 # ======================
-# MAPEAMENTO DE PREÇOS PARA PLANOS (COMPLETO)
+# MAPEAMENTO DE PREÇOS
 # ======================
 PRICE_TO_PLAN = {
     # ⚽️ Over Limite FT
@@ -122,7 +120,7 @@ PRICE_TO_PLAN = {
     "price_4gM3cv2Xxa0K2Tl8gS8k80i": {"name": "Quero Gol", "period": "quarterly"},
     "price_9B64gz7dN3CmdxZdBc8k80j": {"name": "Quero Gol", "period": "semester"},
     "price_eVq00jdCbdcW8dFdBc8k80k": {"name": "Quero Gol", "period": "yearly"},
-    "price_1TMwoKHhhvYQrvINrMZXSSWA": {"name": "Quero Gol", "period": "monthly"},  # BRL
+    "price_1TMwoKHhhvYQrvINrMZXSSWA": {"name": "Quero Gol", "period": "monthly"},
     
     # ▫️ Over 1.5 in Live
     "price_4gMaEXapZ1ue0Ld7cO8k80l": {"name": "Over 1.5 in Live", "period": "monthly"},
@@ -183,12 +181,11 @@ async def health():
 
 @app.get("/ping")
 async def ping():
-    """Endpoint para cron-job.org"""
     return "pong"
 
 @app.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
-    """Recebe notificação do Stripe quando alguém compra"""
+    """Recebe notificação do Stripe"""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     
@@ -196,39 +193,82 @@ async def stripe_webhook(request: Request):
         event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         print(f"Erro no webhook: {e}")
-        return {"status": "error", "message": str(e)}
+        return {"status": "error"}
     
-    if event["type"] == "checkout.session.completed":
+    customer_email = None
+    price_id = None
+    
+    # ======================
+    # PROCESSAR INVOICE.PAID
+    # ======================
+    if event["type"] == "invoice.paid":
+        invoice = event["data"]["object"]
+        customer_email = invoice.get("customer_email")
+        
+        if invoice.get("lines", {}).get("data"):
+            line = invoice["lines"]["data"][0]
+            # Extrair price_id da linha da fatura
+            if "price" in line:
+                price_id = line["price"]["id"]
+            elif line.get("plan"):
+                price_id = line["plan"]["id"]
+    
+    # ======================
+    # PROCESSAR PAYMENT_INTENT.SUCCEEDED
+    # ======================
+    elif event["type"] == "payment_intent.succeeded":
+        payment_intent = event["data"]["object"]
+        customer_email = payment_intent.get("receipt_email")
+        
+        if payment_intent.get("customer"):
+            try:
+                subscriptions = stripe.Subscription.list(customer=payment_intent["customer"], limit=1)
+                if subscriptions.data:
+                    price_id = subscriptions.data[0]["items"]["data"][0]["price"]["id"]
+            except Exception as e:
+                print(f"Erro ao buscar subscription: {e}")
+    
+    # ======================
+    # PROCESSAR CHECKOUT.SESSION.COMPLETED
+    # ======================
+    elif event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         customer_email = session.get("customer_email")
         
-        if not customer_email:
-            print("⚠️ Email não encontrado no webhook")
-            return {"status": "error", "message": "No email"}
-        
-        # Buscar qual produto foi comprado
-        line_items = stripe.checkout.Session.list_line_items(session["id"])
-        if line_items.data:
-            price_id = line_items.data[0].price.id
-            print(f"💰 Compra detectada: {customer_email} - Price ID: {price_id}")
-            
-            # Verificar se é combo ou individual
-            if price_id in COMBO_MAPPING:
-                combo = COMBO_MAPPING[price_id]
-                for bot_name in combo["bots"]:
-                    redis_client_wrapper.sadd(f"access:{customer_email}", bot_name)
-                print(f"✅ Combo ativado: {customer_email} -> {combo['name']}")
-            elif price_id in PRICE_TO_PLAN:
-                plan = PRICE_TO_PLAN[price_id]
-                redis_client_wrapper.sadd(f"access:{customer_email}", plan["name"])
-                print(f"✅ Bot ativado: {customer_email} -> {plan['name']}")
-            else:
-                print(f"⚠️ Price ID não mapeado: {price_id}")
-                return {"status": "error", "message": "Price ID not mapped"}
-            
-            redis_client_wrapper.expire(f"access:{customer_email}", 365 * 24 * 3600)
+        try:
+            line_items = stripe.checkout.Session.list_line_items(session["id"])
+            if line_items.data:
+                price_id = line_items.data[0].price.id
+        except Exception as e:
+            print(f"Erro ao buscar line items: {e}")
     
-    return {"status": "success"}
+    # ======================
+    # SALVAR ACESSO NO REDIS
+    # ======================
+    if customer_email and price_id:
+        print(f"💰 Compra detectada: {customer_email} - Price ID: {price_id}")
+        
+        if price_id in COMBO_MAPPING:
+            combo = COMBO_MAPPING[price_id]
+            for bot_name in combo["bots"]:
+                redis_client_wrapper.sadd(f"access:{customer_email}", bot_name)
+            print(f"✅ Combo ativado: {customer_email} -> {combo['name']}")
+        elif price_id in PRICE_TO_PLAN:
+            plan = PRICE_TO_PLAN[price_id]
+            redis_client_wrapper.sadd(f"access:{customer_email}", plan["name"])
+            print(f"✅ Bot ativado: {customer_email} -> {plan['name']}")
+        else:
+            print(f"⚠️ Price ID não mapeado: {price_id}")
+            return {"status": "error", "message": "Price ID not mapped"}
+        
+        redis_client_wrapper.expire(f"access:{customer_email}", 365 * 24 * 3600)
+        return {"status": "success"}
+    
+    return {"status": "ignored"}
+
+# ======================
+# ENDPOINTS DE CONSULTA
+# ======================
 
 @app.get("/check/{email}/{bot_name}")
 async def check_access(email: str, bot_name: str):
@@ -241,16 +281,15 @@ async def check_access(email: str, bot_name: str):
         user_bots = [b.lower().strip() for b in bots]
         
         if bot_clean in user_bots:
-            return {"granted": True, "email": email_clean, "bot": bot_clean}
-        else:
-            return {"granted": False, "email": email_clean, "bot": bot_clean}
+            return {"granted": True}
+        return {"granted": False}
     except Exception as e:
         print(f"Erro no check_access: {e}")
-        return {"granted": False, "error": str(e)}
+        return {"granted": False}
 
 @app.post("/register-chat")
 async def register_chat(request: Request):
-    """Registra o chat_id do usuário no backend"""
+    """Registra o chat_id do usuário"""
     try:
         data = await request.json()
         email = data.get("email")
@@ -272,23 +311,7 @@ async def register_result(request: Request):
     """Recebe resultados dos alertas confirmados"""
     try:
         data = await request.json()
-        bot_name = data.get("bot_name")
-        match = data.get("match")
-        result = data.get("result")
-        email = data.get("email")
-        
-        print(f"📊 Resultado registrado: {bot_name} - {match} - {result}")
-        
-        key = f"result:{bot_name}:{datetime.now().timestamp()}"
-        redis_client_wrapper.hset(key, {
-            "bot": bot_name,
-            "match": match,
-            "result": result,
-            "email": email,
-            "timestamp": datetime.now().isoformat()
-        })
-        redis_client_wrapper.expire(key, 30 * 24 * 3600)
-        
+        print(f"📊 Resultado registrado: {data.get('bot_name')} - {data.get('result')}")
         return {"status": "success"}
     except Exception as e:
         print(f"Erro no register_result: {e}")
