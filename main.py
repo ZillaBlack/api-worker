@@ -106,66 +106,77 @@ class RedisClient:
 redis_client_wrapper = RedisClient(REDIS_URL)
 
 # ======================
-# MAPEAMENTO DE PREÇOS
+# MAPEAMENTO DE PLANOS (NOVOS)
 # ======================
-PRICE_TO_PLAN = {
-    # ⚽️ Over Limite FT
-    "price_6oU5kD8hReh0alN2Wy8k80d": {"name": "Over Limite FT", "period": "monthly"},
-    "price_28E3cvdCbc8SctV2Wy8k80e": {"name": "Over Limite FT", "period": "quarterly"},
-    "price_dRm6oH2XxdcWalN7cO8k80f": {"name": "Over Limite FT", "period": "semester"},
-    "price_bJecN52Xx8WG9hJeFg8k80g": {"name": "Over Limite FT", "period": "yearly"},
-    
-    # 🟣 Quero Gol
-    "price_5kQ14nbu38WG65xbt48k80h": {"name": "Quero Gol", "period": "monthly"},
-    "price_4gM3cv2Xxa0K2Tl8gS8k80i": {"name": "Quero Gol", "period": "quarterly"},
-    "price_9B64gz7dN3CmdxZdBc8k80j": {"name": "Quero Gol", "period": "semester"},
-    "price_eVq00jdCbdcW8dFdBc8k80k": {"name": "Quero Gol", "period": "yearly"},
-    "price_1TMwoKHhhvYQrvINrMZXSSWA": {"name": "Quero Gol", "period": "monthly"},
-    
-    # ▫️ Over 1.5 in Live
-    "price_4gMaEXapZ1ue0Ld7cO8k80l": {"name": "Over 1.5 in Live", "period": "monthly"},
-    "price_fZu9AT55F1ue3Xp2Wy8k80m": {"name": "Over 1.5 in Live", "period": "quarterly"},
-    "price_8x29ATfKj0qa65x2Wy8k80n": {"name": "Over 1.5 in Live", "period": "semester"},
-    "price_28E5kDbu32yi2TlfJk8k80o": {"name": "Over 1.5 in Live", "period": "yearly"},
-    
-    # 🚩 TOTALCANTO ASIÁTICO/LIMITE HT
-    "price_9B6dR9bu37SCbpR54G8k80p": {"name": "TotalCanto HT", "period": "monthly"},
-    "price_8x27sLfKjfl41Ph9kW8k80q": {"name": "TotalCanto HT", "period": "quarterly"},
-    "price_fZu14napZb4O65xfJk8k80r": {"name": "TotalCanto HT", "period": "semester"},
-    "price_dRm14napZb4O65xfJk8k80s": {"name": "TotalCanto HT", "period": "yearly"},
-    
-    # 🚩 TOTALCANTO ASIÁTICO/LIMITE FT
-    "price_8x200j55Fc8S2Tl7cO8k80t": {"name": "TotalCanto FT", "period": "monthly"},
-    "price_3cIdR92Xx7SCdxZeFg8k80u": {"name": "TotalCanto FT", "period": "quarterly"},
-    "price_eVqcN58hR8WG3Xpcx88k80v": {"name": "TotalCanto FT", "period": "semester"},
-    "price_bJe6oHfKjeh00LdgNo8k80w": {"name": "TotalCanto FT", "period": "yearly"},
-    
-    # 🔹 Momentum of Gol
-    "price_bJe5kDfKj8WG9hJcx88k80x": {"name": "Momentum of Gol", "period": "monthly"},
-    "price_14AfZh41B0qagKbdBc8k80y": {"name": "Momentum of Gol", "period": "quarterly"},
-    "price_28EaEX7dN1ue9hJdBc8k80z": {"name": "Momentum of Gol", "period": "semester"},
-    "price_7sYfZh2Xx3Cm2Tl0Oq8k80A": {"name": "Momentum of Gol", "period": "yearly"},
+# START: Quero Gol, Over Limite FT, Over 1.5 in Live
+# BUSINESS: Momentum of Gol, Over Limite FT, Over 1.5 in Live, Quero Gol, TotalCanto HT, TotalCanto FT
+# ULTRA: Tudo do BUSINESS + Total Score, XC Over
+
+PLAN_FEATURES = {
+    "START": [
+        "Quero Gol",
+        "Over Limite FT", 
+        "Over 1.5 in Live"
+    ],
+    "BUSINESS": [
+        "Momentum of Gol",
+        "Over Limite FT",
+        "Over 1.5 in Live",
+        "Quero Gol",
+        "TotalCanto HT",
+        "TotalCanto FT"
+    ],
+    "ULTRA": [
+        "Momentum of Gol",
+        "Over Limite FT",
+        "Over 1.5 in Live",
+        "Quero Gol",
+        "TotalCanto HT",
+        "TotalCanto FT",
+        "Total Score",
+        "XC Over"
+    ]
 }
 
-COMBO_MAPPING = {
-    # Bundle Bots Gols
-    "price_cNifZh7dN1uedxZfJk8k80B": {"name": "Bundle Gols", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT"]},
-    "price_14AfZh41B0qagKbdBc8k80y": {"name": "Bundle Gols", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT"]},
-    "price_28EaEX7dN1ue9hJdBc8k80z": {"name": "Bundle Gols", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT"]},
-    "price_14A9AT9lVa0K65xdBc8k80E": {"name": "Bundle Gols", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT"]},
+# Mapeamento dos Price IDs do Stripe para os Planos
+PRICE_TO_PLAN = {
+    # START (15, 35, 55, 90)
+    "price_28E5kDeGf4Gq0Ld7cO8k80N": {"name": "START", "period": "monthly"},
+    "price_cNicN5cy77SCctVcx88k80O": {"name": "START", "period": "quarterly"},
+    "price_6oUaEXcy7eh079B1Su8k80P": {"name": "START", "period": "semester"},
+    "price_fZu00j9lV2yi0LdfJk8k80Q": {"name": "START", "period": "yearly"},
     
-    # Bundle Bots Cantos
-    "price_dRmfZh2Xx5Ku2Tl54G8k80F": {"name": "Bundle Cantos", "bots": ["TotalCanto HT", "TotalCanto FT"]},
-    "price_6oU3cvbu36OyeC37cO8k80G": {"name": "Bundle Cantos", "bots": ["TotalCanto HT", "TotalCanto FT"]},
-    "price_cNi14n2Xxeh0eC3eFg8k80H": {"name": "Bundle Cantos", "bots": ["TotalCanto HT", "TotalCanto FT"]},
-    "price_8x28wP0Ppgp8dxZ2Wy8k80I": {"name": "Bundle Cantos", "bots": ["TotalCanto HT", "TotalCanto FT"]},
+    # BUSINESS (35, 75, 130, 220)
+    "price_3cI8wPgOn1uedxZap08k80Z": {"name": "BUSINESS", "period": "monthly"},
+    "price_fZufZh7dN7SC9hJfJk8k810": {"name": "BUSINESS", "period": "quarterly"},
+    "price_9B65kDfKjc8SctVcx88k811": {"name": "BUSINESS", "period": "semester"},
+    "price_aFa9ATfKj3Cm0Ld40C8k812": {"name": "BUSINESS", "period": "yearly"},
     
-    # FULL BOTS
-    "price_7sY4gz2Xxeh065xbt48k80J": {"name": "Full Bots", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT", "TotalCanto HT", "TotalCanto FT", "Momentum of Gol"]},
-    "price_3cI8wPgOn2yi3Xp54G8k80K": {"name": "Full Bots", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT", "TotalCanto HT", "TotalCanto FT", "Momentum of Gol"]},
-    "price_3cI14n8hR6Oy1Phcx88k80L": {"name": "Full Bots", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT", "TotalCanto HT", "TotalCanto FT", "Momentum of Gol"]},
-    "price_6oU7sL0Ppa0KctV2Wy8k80M": {"name": "Full Bots", "bots": ["Quero Gol", "Over 1.5 in Live", "Over Limite FT", "TotalCanto HT", "TotalCanto FT", "Momentum of Gol"]},
+    # ULTRA (90, 220, 370, 650)
+    "price_4gM5kD7dN0qa2Tl54G8k813": {"name": "ULTRA", "period": "monthly"},
+    "price_8x2cN5eGf2yi65x54G8k814": {"name": "ULTRA", "period": "quarterly"},
+    "price_cNifZhapZc8S0Ld9kW8k817": {"name": "ULTRA", "period": "semester"},
+    "price_9B614n2Xx0qa3XpgNo8k816": {"name": "ULTRA", "period": "yearly"},
 }
+
+# ======================
+# FUNÇÕES AUXILIARES
+# ======================
+def grant_plan_access(email: str, plan_name: str):
+    """Concede acesso a todos os bots do plano"""
+    if plan_name not in PLAN_FEATURES:
+        print(f"⚠️ Plano desconhecido: {plan_name}")
+        return False
+    
+    bots = PLAN_FEATURES[plan_name]
+    for bot_name in bots:
+        redis_client_wrapper.sadd(f"access:{email}", bot_name)
+    
+    # Salvar também qual plano o usuário possui
+    redis_client_wrapper.sadd(f"user_plan:{email}", plan_name)
+    
+    print(f"✅ Plano {plan_name} ativado para {email} -> {len(bots)} bots liberados")
+    return True
 
 # ======================
 # ENDPOINTS
@@ -207,7 +218,6 @@ async def stripe_webhook(request: Request):
         
         if invoice.get("lines", {}).get("data"):
             line = invoice["lines"]["data"][0]
-            # Extrair price_id da linha da fatura
             if "price" in line:
                 price_id = line["price"]["id"]
             elif line.get("plan"):
@@ -248,21 +258,14 @@ async def stripe_webhook(request: Request):
     if customer_email and price_id:
         print(f"💰 Compra detectada: {customer_email} - Price ID: {price_id}")
         
-        if price_id in COMBO_MAPPING:
-            combo = COMBO_MAPPING[price_id]
-            for bot_name in combo["bots"]:
-                redis_client_wrapper.sadd(f"access:{customer_email}", bot_name)
-            print(f"✅ Combo ativado: {customer_email} -> {combo['name']}")
-        elif price_id in PRICE_TO_PLAN:
+        if price_id in PRICE_TO_PLAN:
             plan = PRICE_TO_PLAN[price_id]
-            redis_client_wrapper.sadd(f"access:{customer_email}", plan["name"])
-            print(f"✅ Bot ativado: {customer_email} -> {plan['name']}")
+            grant_plan_access(customer_email, plan["name"])
+            redis_client_wrapper.expire(f"access:{customer_email}", 365 * 24 * 3600)
+            return {"status": "success", "plan": plan["name"]}
         else:
             print(f"⚠️ Price ID não mapeado: {price_id}")
             return {"status": "error", "message": "Price ID not mapped"}
-        
-        redis_client_wrapper.expire(f"access:{customer_email}", 365 * 24 * 3600)
-        return {"status": "success"}
     
     return {"status": "ignored"}
 
@@ -286,6 +289,29 @@ async def check_access(email: str, bot_name: str):
     except Exception as e:
         print(f"Erro no check_access: {e}")
         return {"granted": False}
+
+@app.get("/user-plan/{email}")
+async def get_user_plan(email: str):
+    """Retorna o plano do usuário e os bots disponíveis"""
+    try:
+        email_clean = email.lower().strip()
+        
+        # Buscar plano do usuário
+        plans = redis_client_wrapper.smembers(f"user_plan:{email_clean}")
+        user_plan = list(plans)[0] if plans else "FREE"
+        
+        # Buscar bots disponíveis
+        bots = list(redis_client_wrapper.smembers(f"access:{email_clean}"))
+        
+        return {
+            "email": email,
+            "plan": user_plan,
+            "bots": bots,
+            "total_bots": len(bots),
+            "redis_connected": redis_client_wrapper.ping()
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/register-chat")
 async def register_chat(request: Request):
@@ -322,8 +348,10 @@ async def debug_access(email: str):
     """Endpoint para debug - mostra todos os bots que o email tem acesso"""
     try:
         bots = list(redis_client_wrapper.smembers(f"access:{email.lower()}"))
+        plans = list(redis_client_wrapper.smembers(f"user_plan:{email.lower()}"))
         return {
             "email": email,
+            "plan": plans[0] if plans else "FREE",
             "bots": bots,
             "total": len(bots),
             "redis_connected": redis_client_wrapper.ping()
